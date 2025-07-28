@@ -1,84 +1,52 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { LandingPage } from './pages/LandingPage';
-import { AuthPage } from './pages/AuthPage';
-import { DashboardLayout } from './components/DashboardLayout';
-import { Dashboard } from './pages/Dashboard';
-import { Diagnostics } from './pages/Diagnostics';
-import { AIAssistant } from './pages/AIAssistant';
-import { HealthMonitoring } from './pages/HealthMonitoring';
-import { Reports } from './pages/Reports';
-import { Settings } from './pages/Settings';
-
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated } = useAuth();
-  return isAuthenticated ? <>{children}</> : <Navigate to="/auth" replace />;
-}
-
-function AppRoutes() {
-  const { isAuthenticated } = useAuth();
-
-  return (
-    <Routes>
-      <Route path="/" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LandingPage />} />
-      <Route path="/auth" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <AuthPage />} />
-      <Route path="/dashboard" element={
-        <ProtectedRoute>
-          <DashboardLayout>
-            <Dashboard />
-          </DashboardLayout>
-        </ProtectedRoute>
-      } />
-      <Route path="/diagnostics" element={
-        <ProtectedRoute>
-          <DashboardLayout>
-            <Diagnostics />
-          </DashboardLayout>
-        </ProtectedRoute>
-      } />
-      <Route path="/ai-assistant" element={
-        <ProtectedRoute>
-          <DashboardLayout>
-            <AIAssistant />
-          </DashboardLayout>
-        </ProtectedRoute>
-      } />
-      <Route path="/health" element={
-        <ProtectedRoute>
-          <DashboardLayout>
-            <HealthMonitoring />
-          </DashboardLayout>
-        </ProtectedRoute>
-      } />
-      <Route path="/reports" element={
-        <ProtectedRoute>
-          <DashboardLayout>
-            <Reports />
-          </DashboardLayout>
-        </ProtectedRoute>
-      } />
-      <Route path="/settings" element={
-        <ProtectedRoute>
-          <DashboardLayout>
-            <Settings />
-          </DashboardLayout>
-        </ProtectedRoute>
-      } />
-    </Routes>
-  );
-}
+import { useState, useEffect } from 'react';
+import { Routes, Route } from 'react-router-dom';
+import { Auth } from '@supabase/auth-ui-react';
+import { ThemeSupa } from '@supabase/auth-ui-shared';
+import { Session } from '@supabase/supabase-js';
+import { supabase } from './supabaseClient';
+import Home from './pages/Home';
+import Chat from './pages/Chat';
+import Header from './components/Header';
 
 function App() {
-  return (
-    <AuthProvider>
-      <Router>
-        <div className="min-h-screen bg-black text-white">
-          <AppRoutes />
+  const [session, setSession] = useState<Session | null>(null);
+
+  useEffect(() => {
+    // Check for an active session when the app loads
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+    });
+
+    // Listen for changes in authentication state (login/logout)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+    });
+
+    // Cleanup the listener when the component unmounts
+    return () => subscription.unsubscribe();
+  }, []);
+
+  if (!session) {
+    // If no user is logged in, show the Supabase Auth UI
+    return (
+        <div style={{ width: '100vw', height: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            <div style={{ width: '320px' }}>
+                <Auth supabaseClient={supabase} appearance={{ theme: ThemeSupa }} theme="dark" />
+            </div>
         </div>
-      </Router>
-    </AuthProvider>
-  );
+    )
+  } else {
+    // If a user is logged in, show the main application
+    return (
+      <>
+        <Header />
+        <Routes>
+          <Route path="/" element={<Home />} />
+          <Route path="/chat" element={<Chat session={session} />} />
+        </Routes>
+      </>
+    );
+  }
 }
 
 export default App;
