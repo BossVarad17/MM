@@ -1,7 +1,0 @@
-fastapi
-uvicorn[standard]
-scikit-learn
-xgboost
-joblib
-python-dotenv
-google-generativeai
